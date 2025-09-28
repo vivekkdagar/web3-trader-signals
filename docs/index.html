@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trader Behavior & Bitcoin Sentiment Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+
+    <link rel="stylesheet" href="assets/style.css">
+
+    <script src="assets/script.js" defer></script>
+
+    <script>
+        // Custom Chart.js plugin to draw the needle for the sentiment gauge
+        const gaugeNeedle = {
+            id: 'gaugeNeedle',
+            afterDatasetDraw(chart, args, options) {
+                const { ctx, chartArea: { width, height }, data, config } = chart;
+                const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                const value = parseFloat(config.options.value || 0);
+                const angle = Math.PI + (value / 100) * Math.PI; // Map 0-100 to 180-360 degrees (0 to Pi)
+
+                const centerX = width / 2;
+                const centerY = height + 10; // Position gauge at the bottom of the chart area
+
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angle);
+
+                // Draw the needle
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -height * 0.9);
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = '#f8f8f8'; // White needle for dark mode
+                ctx.stroke();
+
+                // Draw the central hub
+                ctx.beginPath();
+                ctx.arc(0, 0, 10, 0, 2 * Math.PI);
+                ctx.fillStyle = '#f8f8f8';
+                ctx.fill();
+
+                ctx.restore();
+            },
+            beforeDraw(chart) {
+                const { ctx, chartArea: { width, height }, config } = chart;
+                const value = parseFloat(config.options.value || 0);
+
+                // Add text label for the value
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 32px Inter, sans-serif';
+                ctx.fillStyle = '#A0AEC0'; // Light gray text
+                ctx.fillText(value.toFixed(1), width / 2, height / 2);
+                ctx.restore();
+            }
+        };
+        Chart.register(gaugeNeedle);
+    </script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+
+    <header class="sticky top-0 bg-gray-900 border-b border-gray-700 shadow-2xl z-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row justify-between items-center">
+            <h1 class="text-3xl font-extrabold text-cyan-400 mb-3 sm:mb-0">
+                <span class="text-indigo-400">Bitcoin Trader</span> Analysis
+            </h1>
+            <nav class="space-x-3 text-sm font-medium">
+                <a href="#dashboard" class="text-gray-300 hover:text-cyan-400 transition duration-300 p-2 rounded-lg hover:bg-gray-800">Dashboard</a>
+                <a href="#analysis" class="text-gray-300 hover:text-cyan-400 transition duration-300 p-2 rounded-lg hover:bg-gray-800">Analysis Steps</a>
+                <a href="#regression" class="text-gray-300 hover:text-cyan-400 transition duration-300 p-2 rounded-lg hover:bg-gray-800">Regression</a>
+                <a href="#clustering" class="text-gray-300 hover:text-cyan-400 transition duration-300 p-2 rounded-lg hover:bg-gray-800">Clustering</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+
+        <section class="py-16">
+            <div class="p-8 bg-gray-800 rounded-2xl shadow-3xl animate-fadeIn" style="animation-delay: 0.1s;">
+                <h2 class="text-4xl font-extrabold text-gray-100 mb-4 tracking-tight">Project Overview: Unpacking Crypto Trading Behavior 🚀</h2>
+                <p class="text-gray-300 leading-relaxed text-lg">
+                    This analysis explores the relationship between **trader behavior** (profitability, risk, volume) and **Bitcoin market sentiment** (Fear vs. Greed). The primary goal is to identify trends and statistical relationships that can lead to smarter, data-driven trading strategies. Below is an interactive dashboard showcasing the key visualizations and insights derived from the data.
+                </p>
+            </div>
+        </section>
+
+        <section id="dashboard" class="py-16 border-t border-gray-800">
+            <h2 class="text-4xl font-bold text-indigo-400 mb-8 tracking-wide">Interactive Dashboard: Key Visualizations</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+
+                <div class="bg-gray-800 p-6 rounded-xl shadow-xl h-96 transition duration-300 hover:shadow-cyan-400/20 animate-fadeIn" style="animation-delay: 0.3s;">
+                    <h3 class="text-xl font-semibold mb-3 text-gray-200 border-b border-gray-700 pb-2">PnL vs. Sentiment Over Time</h3>
+                    <canvas id="pnlSentimentChart"></canvas>
+                    <p class="text-sm text-gray-400 mt-4">
+                        <span class="font-bold text-cyan-400">Observed:</span> The time series shows high **volatility** in daily Total PnL with no clear, simple correlation to the Sentiment Index.
+                    </p>
+                </div>
+
+                <div class="bg-gray-800 p-6 rounded-xl shadow-xl h-96 transition duration-300 hover:shadow-cyan-400/20 animate-fadeIn" style="animation-delay: 0.5s;">
+                    <h3 class="text-xl font-semibold mb-3 text-gray-200 border-b border-gray-700 pb-2">Trader Clustering: Risk, Volume, & PnL Profiles</h3>
+                    <canvas id="clusteringChart"></canvas>
+                    <p class="text-sm text-gray-400 mt-4">
+                        <span class="font-bold text-cyan-400">Observed:</span> K-Means clustering identifies three distinct behavioral groups, suggesting trading days are not a smooth spectrum.
+                    </p>
+                </div>
+
+                <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div class="bg-gray-800 p-6 rounded-xl shadow-xl h-96 flex flex-col transition duration-300 hover:shadow-cyan-400/20 animate-fadeIn" style="animation-delay: 0.7s;">
+                        <h3 class="text-xl font-semibold mb-3 text-gray-200 border-b border-gray-700 pb-2">Trade Side Distribution</h3>
+                        <div class="flex-grow flex items-center justify-center">
+                            <canvas id="tradeSideChart" class="max-h-64"></canvas>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-4 text-center">
+                            <span class="font-bold text-cyan-400">Observed:</span> Sell trades (<span class="text-red-400 font-bold">51.4%</span>) slightly outnumbered Buy trades (<span class="text-green-400 font-bold">48.6%</span>).
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-800 p-6 rounded-xl shadow-xl h-96 flex flex-col transition duration-300 hover:shadow-cyan-400/20 animate-fadeIn" style="animation-delay: 0.9s;">
+                        <h3 class="text-xl font-semibold mb-3 text-gray-200 border-b border-gray-700 pb-2">Current Market Sentiment (Fear vs. Greed)</h3>
+                        <div class="flex-grow flex items-center justify-center -mt-16">
+                            <canvas id="sentimentGaugeChart" class="max-h-64"></canvas>
+                        </div>
+                        <p class="text-sm text-gray-400 mt-4 text-center">
+                            <span class="font-bold text-cyan-400">Latest Score:</span> <span id="sentimentValue" class="font-extrabold text-2xl text-indigo-400">51.2</span>. Currently in **Neutral/Slightly Greedy** territory (score $\ge 50$).
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+        <section id="analysis" class="py-16 border-t border-gray-800">
+            <h2 class="text-4xl font-bold text-indigo-400 mb-8 tracking-wide">Analysis Steps & Methodology 🔬</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="p-6 bg-gray-800 rounded-xl shadow-xl border-t-4 border-cyan-400 h-full transition duration-300 hover:scale-[1.02] animate-fadeIn" style="animation-delay: 1.1s;">
+                    <h3 class="text-2xl font-semibold mb-3 text-cyan-400">1. Data Preparation</h3>
+                    <p class="text-gray-300 text-sm">
+                        Raw data from Historical Trader Data and the Fear & Greed Index was loaded, standardized, and merged.
+                        <ul class="list-disc list-inside text-gray-400 mt-3 space-y-1 text-sm">
+                            <li><span class="font-medium">Cleaning:</span> Lowercase column names, removed duplicates.</li>
+                            <li><span class="font-medium">Validation:</span> Parsed dates and dropped invalid entries.</li>
+                        </ul>
+                    </p>
+                </div>
+                <div class="p-6 bg-gray-800 rounded-xl shadow-xl border-t-4 border-cyan-400 h-full transition duration-300 hover:scale-[1.02] animate-fadeIn" style="animation-delay: 1.3s;">
+                    <h3 class="text-2xl font-semibold mb-3 text-cyan-400">2. Feature Engineering</h3>
+                    <p class="text-gray-300 text-sm">
+                        Transactional data was aggregated daily to align with sentiment scores.
+                        <ul class="list-disc list-inside text-gray-400 mt-3 space-y-1 text-sm">
+                            <li><span class="font-medium">Daily Metrics:</span> Calculated daily <code class="bg-gray-700 p-1 rounded text-xs">total_pnl</code>, <code class="bg-gray-700 p-1 rounded text-xs">total_volume</code>, and <code class="bg-gray-700 p-1 rounded text-xs">price_risk</code>.</li>
+                            <li><span class="font-medium">Normalization:</span> Sentiment transformed to <code class="bg-gray-700 p-1 rounded text-xs">sentiment_norm</code> (0-1) for modeling.</li>
+                        </ul>
+                    </p>
+                </div>
+                <div class="p-6 bg-gray-800 rounded-xl shadow-xl border-t-4 border-cyan-400 h-full transition duration-300 hover:scale-[1.02] animate-fadeIn" style="animation-delay: 1.5s;">
+                    <h3 class="text-2xl font-semibold mb-3 text-cyan-400">3. Initial Findings (EDA)</h3>
+                    <p class="text-gray-300 text-sm">
+                        Initial observations established the baseline trading environment characteristics.
+                        <ul class="list-disc list-inside text-gray-400 mt-3 space-y-1 text-sm">
+                            <li><span class="font-medium text-green-400">Profitability:</span> Traders were, on average, <strong class="text-green-400">more profitable</strong> during GREED periods.</li>
+                            <li><span class="font-medium text-cyan-400">Correlation:</span> <code class="bg-gray-700 p-1 rounded text-xs">total_volume</code> showed the strongest simple correlation with sentiment.</li>
+                        </ul>
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <section id="regression" class="py-16 border-t border-gray-800">
+            <h2 class="text-4xl font-bold text-indigo-400 mb-8 tracking-wide">4. Advanced Analysis: OLS Regression 📊</h2>
+            <p class="text-gray-300 mb-10 text-lg">
+                An Ordinary Least Squares (OLS) regression was performed to quantify the linear influence of sentiment and trading activity on daily total PnL.
+            </p>
+
+            <div class="flex flex-col lg:flex-row gap-10">
+                <div class="lg:w-1/2 overflow-x-auto bg-gray-800 rounded-xl shadow-2xl p-6 animate-fadeIn" style="animation-delay: 1.7s;">
+                    <h3 class="text-xl font-semibold mb-4 text-gray-200 border-b border-gray-700 pb-2">OLS Regression Results on Daily Total PnL</h3>
+                    <table class="min-w-full divide-y divide-gray-700">
+                        <thead class="bg-gray-700">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Variable</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Coefficient ($\beta$)</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">P-value ($P>|t|$)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-700 text-gray-300">
+                            <tr class="bg-gray-800 hover:bg-gray-700 transition duration-150">
+                                <td class="px-6 py-4 whitespace-nowrap font-medium text-green-400">total_volume</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-lg">0.0035</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-green-400 font-extrabold text-lg">0.000</td>
+                            </tr>
+                            <tr class="bg-gray-800 hover:bg-gray-700 transition duration-150">
+                                <td class="px-6 py-4 whitespace-nowrap">sentiment_norm</td>
+                                <td class="px-6 py-4 whitespace-nowrap">48320</td>
+                                <td class="px-6 py-4 whitespace-nowrap">0.215</td>
+                            </tr>
+                            <tr class="bg-gray-800 hover:bg-gray-700 transition duration-150">
+                                <td class="px-6 py-4 whitespace-nowrap">sentiment_lag1</td>
+                                <td class="px-6 py-4 whitespace-nowrap">$-53130$</td>
+                                <td class="px-6 py-4 whitespace-nowrap">0.176</td>
+                            </tr>
+                            <tr class="bg-gray-800 hover:bg-gray-700 transition duration-150">
+                                <td class="px-6 py-4 whitespace-nowrap">price_risk</td>
+                                <td class="px-6 py-4 whitespace-nowrap">0.1029</td>
+                                <td class="px-6 py-4 whitespace-nowrap">0.679</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="lg:w-1/2 p-6 bg-gray-800 rounded-xl shadow-2xl border-l-4 border-indigo-400 transition duration-300 hover:shadow-indigo-400/20 animate-fadeIn" style="animation-delay: 1.9s;">
+                    <h3 class="text-2xl font-extrabold mb-4 text-indigo-400 border-b border-gray-700 pb-2">Key Regression Insights</h3>
+                    <ul class="list-disc list-inside text-gray-300 space-y-4 text-lg">
+                        <li><strong class="text-green-400">Significant Predictor:</strong> The only statistically significant predictor of Total PnL is **Total Volume** ($P=0.000$). Higher volume (both buys and sells) increases the magnitude of daily PnL swings.</li>
+                        <li><strong class="text-red-400">Insignificant Sentiment:</strong> Current and lagged sentiment scores are **not significant** ($P>0.17$), confirming the visual observation that there is no simple, immediate linear relationship between sentiment and overall daily profitability.</li>
+                        <li><strong class="text-gray-400">Model Fit:</strong> The low $R^2$ of $0.109$ indicates that only about $10.9\%$ of the variation in Total PnL is explained by these variables. Other factors are much more important.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="clustering" class="py-16 border-t border-gray-800">
+            <h2 class="text-4xl font-bold text-indigo-400 mb-8 tracking-wide">5. Advanced Analysis: K-Means Clustering 🧩</h2>
+            <p class="text-gray-300 mb-10 text-lg">
+                The K-Means algorithm (with $k=3$) was applied to group trading days based on performance metrics ($\text{total\_pnl}$, $\text{total\_volume}$, and $\text{price\_risk}$).
+            </p>
+            <div class="p-8 bg-gray-800 rounded-xl shadow-2xl border-l-4 border-cyan-400 transition duration-300 hover:shadow-cyan-400/20 animate-fadeIn" style="animation-delay: 2.1s;">
+                <h3 class="text-3xl font-extrabold mb-5 text-cyan-400">Identified Trader Groups</h3>
+                <p class="text-gray-300 mb-6 text-lg">The analysis identified three distinct risk-volume-profitability profiles, shown on the scatter chart above:</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="space-y-2 p-4 bg-gray-700/50 rounded-lg border border-gray-700 hover:bg-gray-700 transition duration-200">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-4 h-4 rounded-full shadow-lg" style="background-color: var(--chart-pink);"></span>
+                            <p class="text-xl font-bold text-pink-400">Risk Lover (Pink)</p>
+                        </div>
+                        <p class="text-gray-300 text-sm">Characterized by **high volume** and **high price risk** (large execution price deviation). These days show extreme activity.</p>
+                    </div>
+                    <div class="space-y-2 p-4 bg-gray-700/50 rounded-lg border border-gray-700 hover:bg-gray-700 transition duration-200">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-4 h-4 rounded-full shadow-lg" style="background-color: var(--chart-blue);"></span>
+                            <p class="text-xl font-bold text-blue-400">Balanced Bob (Dark Blue)</p>
+                        </div>
+                        <p class="text-gray-300 text-sm">Days showing a **moderate mixture** of PnL, volume, and risk. This represents the 'average' trading day.</p>
+                    </div>
+                    <div class="space-y-2 p-4 bg-gray-700/50 rounded-lg border border-gray-700 hover:bg-gray-700 transition duration-200">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-4 h-4 rounded-full shadow-lg" style="background-color: var(--chart-cyan);"></span>
+                            <p class="text-xl font-bold text-cyan-400">Steady Eddy (Light Blue)</p>
+                        </div>
+                        <p class="text-gray-300 text-sm">Days with **lower PnL** and **lower associated risk** and volume, representing a more conservative trading environment.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-gray-900 border-t border-gray-700 mt-20 py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-500 text-sm">
+            &copy; Data Science Project Showcase. Crafted by <strong class="text-indigo-400">Vivek Dagar</strong>.
+        </div>
+    </footer>
+
+</body>
+</html>
